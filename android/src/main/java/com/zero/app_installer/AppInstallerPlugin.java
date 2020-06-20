@@ -1,15 +1,18 @@
 package com.zero.app_installer;
 
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
@@ -27,7 +30,7 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
 /**
  * AppInstallerPlugin
  */
-public class AppInstallerPlugin implements FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandler, PluginRegistry.ActivityResultListener {
+public class AppInstallerPlugin implements FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandler, PluginRegistry.ActivityResultListener, ActivityCompat.OnRequestPermissionsResultCallback {
 
     private Context applicationContext;
     private Activity mActivity;
@@ -155,7 +158,7 @@ public class AppInstallerPlugin implements FlutterPlugin, ActivityAware, MethodC
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             haveInstallPermission = this.applicationContext.getPackageManager().canRequestPackageInstalls();
             if (!haveInstallPermission) {
-                startInstallPermissionSettingActivity();
+                ActivityCompat.requestPermissions(mActivity, new String[]{Manifest.permission.REQUEST_INSTALL_PACKAGES},1);
             } else {
                 // 有权限，开始安装
                 installApk(apkFile, result);
@@ -165,7 +168,6 @@ public class AppInstallerPlugin implements FlutterPlugin, ActivityAware, MethodC
             installApk(apkFile, result);
         }
     }
-
     /**
      * 设置安装未知来源App权限
      */
@@ -216,4 +218,21 @@ public class AppInstallerPlugin implements FlutterPlugin, ActivityAware, MethodC
         return false;
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case 1:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    installApk(this.apkFile, this.result);
+                } else {
+                    //  引导用户手动开启安装权限
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                    this.mActivity.startActivityForResult(intent, 10086);
+                }
+                break;
+            default:
+                break;
+
+        }
+    }
 }
